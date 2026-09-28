@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "contracts/waterfall",
     "contracts/vault-interface",
+    "contracts/mock-vault",
     "tests",
 ]
 

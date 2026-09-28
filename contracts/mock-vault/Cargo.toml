@@ -1,0 +1,28 @@
+[package]
+name = "strata-mock-vault"
+description = "A test-only ERC-4626-style vault whose yield rate the admin controls, including negative."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+# cdylib so `stellar contract build` emits deployable Wasm, rlib so the
+# integration tests can register it natively and call it across contracts.
+crate-type = ["cdylib", "rlib"]
+doctest = false
+
+[features]
+# Required by the integration tests in `tests/`, which register this contract
+# with `env.register`. Empty on purpose: it only flips on soroban-sdk/testutils.
+testutils = []
+
+[dependencies]
+soroban-sdk = { workspace = true }
+strata-vault-interface = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
+strata-vault-interface = { workspace = true }
