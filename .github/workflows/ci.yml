@@ -1,0 +1,159 @@
+name: CI
+
+# Build, test, clippy and fmt on every push and pull request. Nothing is
+# allowed to merge without all four.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Also run on the initial push to an empty repo.
+  workflow_dispatch:
+
+# A new push to a PR supersedes the old run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  lint:
+    name: fmt and clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: lint
+
+      - name: rustfmt
+        run: cargo fmt --all -- --check
+
+      - name: clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: test
+
+      - name: Run the test suite
+        run: cargo test --all --locked
+
+      # The same tests with a much larger generated-input budget. Cheap in
+      # release, and it is where a settlement bug would actually surface.
+      - name: Property tests at scale
+        run: cargo test --release --locked
+        env:
+          PROPTEST_CASES: 20000
+
+  build-wasm:
+    name: build wasm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: wasm
+
+      # `cargo build` does NOT produce a deployable contract. The Soroban
+      # runtime only accepts wasm32v1-none built by `stellar contract build`,
+      # which applies the required build settings. This job exists to prove
+      # that still works for every contract in the workspace.
+      - name: Install the Stellar CLI
+        run: |
+          cargo install stellar-cli --locked
+
+      - name: Build the contracts
+        run: stellar contract build
+
+      - name: Check the artefacts
+        run: |
+          set -euo pipefail
+          found=0
+          for wasm in target/wasm32v1-none/release/*.wasm; do
+            echo "built: $wasm ($(stat -c%s "$wasm") bytes)"
+            found=$((found + 1))
+          done
+          if [ "$found" -lt 2 ]; then
+            echo "expected epoch-manager and mock-vault wasm, found $found"
+            exit 1
+          fi
+
+  docs:
+    name: docs are current
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: docs
+
+      # Every invariant named in the spec must have a property test, and the
+      # spec's own file paths must resolve. Cheap, and it stops the spec and
+      # the tests drifting apart without anyone noticing.
+      - name: Check the spec against the test suite
+        run: |
+          set -euo pipefail
+          missing=0
+          for n in 1 2 3 4 5; do
+            if ! grep -q "invariant_${n}_" tests/src/waterfall_props.rs; then
+              echo "waterfall-spec.md claims invariant $n but no test matches invariant_${n}_"
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ] || exit 1
+
+          for f in $(grep -oE '\((docs/[a-z-]+\.md|[a-z-]+\.md)\)' docs/waterfall-spec.md | tr -d '()' | sort -u); do
+            if [ ! -f "$f" ] && [ ! -f "docs/$f" ]; then
+              echo "waterfall-spec.md links to $f, which does not exist"
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ] || exit 1
+          echo "spec invariants and links check out"
+
+      # The "testnet only" rule is a control, not a promise, so the part of it
+      # that can run without credentials is actually run.
+      - name: The deploy script refuses non-testnets
+        run: ./scripts/deploy-testnet.sh --self-test
+
+  audit:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    # Informational for now: this is an unaudited testnet project, and an audit
+    # failure should not be able to block unrelated work. Flip to `required`
+    # once the dependency set has settled, and see the supply-chain entry in
+    # docs/risks.md.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+
+      - name: Audit
+        run: cargo audit
