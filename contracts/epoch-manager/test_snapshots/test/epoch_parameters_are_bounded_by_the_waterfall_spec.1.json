@@ -420,7 +420,7 @@
                   },
                   {
                     "key": {
-                      "symbol": "junior_shares_outstanding"
+                      "symbol": "junior_total"
                     },
                     "val": {
                       "i128": "0"
@@ -428,7 +428,7 @@
                   },
                   {
                     "key": {
-                      "symbol": "junior_total"
+                      "symbol": "junior_unclaimed"
                     },
                     "val": {
                       "i128": "0"
@@ -476,7 +476,7 @@
                   },
                   {
                     "key": {
-                      "symbol": "senior_shares_outstanding"
+                      "symbol": "senior_total"
                     },
                     "val": {
                       "i128": "0"
@@ -484,7 +484,7 @@
                   },
                   {
                     "key": {
-                      "symbol": "senior_total"
+                      "symbol": "senior_unclaimed"
                     },
                     "val": {
                       "i128": "0"

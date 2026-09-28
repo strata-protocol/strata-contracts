@@ -271,7 +271,7 @@ fn an_empty_position_reads_as_zero() {
     let f = fixture();
     f.client().create_epoch(&TERM, &RATE, &RATIO);
     let p = f.client().position_of(&f.user, &Tranche::Senior);
-    assert_eq!(p.shares, 0);
+    assert_eq!(p.principal, 0);
     assert_eq!(p.estimated_payout, 0);
 }
 

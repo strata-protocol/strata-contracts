@@ -13,3 +13,6 @@
 #![cfg(test)]
 
 pub mod waterfall_props;
+
+#[cfg(test)]
+pub mod integration;

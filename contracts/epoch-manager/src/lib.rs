@@ -40,8 +40,8 @@
 
 use soroban_sdk::{
     auth::{ContractContext, InvokerContractAuthEntry, SubContractInvocation},
-    contract, contracterror, contractevent, contractimpl, contracttype, symbol_short, vec, Address,
-    Env, IntoVal, Symbol,
+    contract, contracterror, contractevent, contractimpl, contracttype, symbol_short, token, vec,
+    Address, Env, IntoVal, Symbol,
 };
 use strata_vault_interface::VaultClient;
 use strata_waterfall::{check_rate, check_ratio, check_term, validate_principal, WaterfallError};
@@ -129,14 +129,22 @@ pub struct Epoch {
     pub rate_bps: u32,
     /// Cap on senior principal as a fraction of junior principal, in bps.
     pub max_senior_ratio_bps: u32,
-    /// Total senior principal deposited.
+    /// Total senior principal deposited. Immutable once the epoch settles, and
+    /// the denominator of the pro-rata split.
     pub senior_total: i128,
     /// Total junior principal deposited.
     pub junior_total: i128,
-    /// Sum of all outstanding senior shares, to detect the last claim.
-    pub senior_shares_outstanding: i128,
-    /// Sum of all outstanding junior shares.
-    pub junior_shares_outstanding: i128,
+    /// Senior principal deposited but not yet claimed. Used **only** to detect
+    /// which claim is the last one in the tranche, so the final claimant can
+    /// absorb the rounding remainder.
+    ///
+    /// Deliberately *not* the denominator of the pro-rata split. The split is
+    /// defined against `senior_total`, which does not shrink as people claim;
+    /// dividing by a shrinking figure would hand later claimants a larger
+    /// slice than their share.
+    pub senior_unclaimed: i128,
+    /// Junior principal deposited but not yet claimed.
+    pub junior_unclaimed: i128,
     /// Vault shares held by the manager, redeemed at settlement.
     pub vault_shares: i128,
     /// Assets actually redeemed from the vault: the spec's `V`.
@@ -177,9 +185,9 @@ pub struct Config {
 #[contracttype]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Position {
-    /// The depositor's pro-rata share of the tranche's principal.
-    pub shares: i128,
-    /// What those shares are worth. Exact once the epoch settles; a projection
+    /// The principal `who` deposited into this tranche.
+    pub principal: i128,
+    /// What that principal is worth. Exact once the epoch settles; a projection
     /// against the vault's live valuation before that.
     pub estimated_payout: i128,
 }
@@ -221,6 +229,35 @@ struct EpochClosedEvent {
     value_redeemed: i128,
 }
 
+#[contractevent]
+struct DepositEvent {
+    #[topic]
+    depositor: Address,
+    #[topic]
+    tranche: Tranche,
+    amount: i128,
+    shares: i128,
+}
+
+#[contractevent]
+struct SettledEvent {
+    #[topic]
+    epoch_start_ts: u64,
+    value_redeemed: i128,
+    senior_due: i128,
+    senior_payout: i128,
+    junior_payout: i128,
+}
+
+#[contractevent]
+struct ClaimEvent {
+    #[topic]
+    claimant: Address,
+    #[topic]
+    tranche: Tranche,
+    amount: i128,
+}
+
 #[contract]
 pub struct EpochManager;
 
@@ -255,6 +292,298 @@ impl EpochManager {
             asset,
         }
         .publish(&env);
+    }
+
+    // --- the money path ---
+
+    /// Deposits `amount` into `tranche` on behalf of `from`.
+    ///
+    /// `from` is explicit rather than taken from `env.invoker()` so that the
+    /// authorisation scope is exactly what the caller sees in the transaction.
+    /// `from` must authorise the call.
+    ///
+    /// The tokens are pulled from `from` and locked into the underlying vault
+    /// immediately, so a position earns yield from the moment it is made
+    /// rather than from maturity. That is also why the manager tracks vault
+    /// shares: redemption is shares-proportional, and the share price moves.
+    ///
+    /// Senior deposits pass the junior buffer gate from spec section 7. Junior
+    /// deposits are never gated — junior capital is what makes the structure
+    /// safe, so it is always welcome.
+    ///
+    /// Refuses at or after maturity, which is how deposits close: there is no
+    /// admin override and no separate close step.
+    pub fn deposit(env: Env, from: Address, tranche: Tranche, amount: i128) -> Result<i128, Error> {
+        let config = load_config(&env);
+        let mut epoch = load_epoch(&env).ok_or(Error::NoActiveEpoch)?;
+
+        if epoch.status == Status::Settled {
+            return Err(Error::AlreadySettled);
+        }
+        if env.ledger().timestamp() >= epoch.maturity_ts {
+            return Err(Error::DepositsClosed);
+        }
+        check_amount(amount)?;
+        from.require_auth();
+
+        let me = env.current_contract_address();
+
+        // Gate first, on the post-deposit totals, exactly as the spec states.
+        match tranche {
+            Tranche::Senior => {
+                let new_senior = epoch
+                    .senior_total
+                    .checked_add(amount)
+                    .ok_or(Error::ArithmeticOverflow)?;
+                strata_waterfall::check_senior_deposit(
+                    new_senior,
+                    epoch.junior_total,
+                    epoch.max_senior_ratio_bps,
+                )
+                .map_err(map_waterfall)?;
+                epoch.senior_total = new_senior;
+            }
+            Tranche::Junior => {
+                epoch.junior_total = epoch
+                    .junior_total
+                    .checked_add(amount)
+                    .ok_or(Error::ArithmeticOverflow)?;
+            }
+        }
+
+        // Pull the depositor's tokens in, then lock them into the vault.
+        token::Client::new(&env, &config.asset).transfer(&from, &me, &amount);
+
+        env.authorize_as_current_contract(vec![
+            &env,
+            transfer_auth_entry(&env, &config.asset, &config.vault, amount),
+        ]);
+        let shares = VaultClient::new(&env, &config.vault).deposit(&amount, &me);
+
+        epoch.vault_shares = epoch
+            .vault_shares
+            .checked_add(shares)
+            .ok_or(Error::ArithmeticOverflow)?;
+        match tranche {
+            Tranche::Senior => {
+                epoch.senior_unclaimed = epoch
+                    .senior_unclaimed
+                    .checked_add(amount)
+                    .ok_or(Error::ArithmeticOverflow)?;
+            }
+            Tranche::Junior => {
+                epoch.junior_unclaimed = epoch
+                    .junior_unclaimed
+                    .checked_add(amount)
+                    .ok_or(Error::ArithmeticOverflow)?;
+            }
+        }
+
+        // The position records the *principal*, not the vault shares. The
+        // waterfall and the pro-rata split are both defined over principal,
+        // and the share count moves with the vault's price while principal
+        // does not.
+        let my_principal = load_position(&env, &from, tranche)
+            .checked_add(amount)
+            .ok_or(Error::ArithmeticOverflow)?;
+        store_position(&env, &from, tranche, my_principal);
+        store_epoch(&env, &epoch);
+
+        DepositEvent {
+            depositor: from,
+            tranche,
+            amount,
+            shares,
+        }
+        .publish(&env);
+
+        Ok(shares)
+    }
+
+    /// Settles the epoch: redeems the manager's entire vault position and
+    /// splits the result through the waterfall.
+    ///
+    /// Permissionless once mature. That is deliberate — settlement only ever
+    /// moves the epoch forward, and it is fully determined by the vault's
+    /// redemption plus the pure settlement math, so there is nothing for an
+    /// admin to do and nobody to trust with the timing.
+    ///
+    /// Claims open immediately afterwards.
+    pub fn settle(env: Env) -> Result<ProjectedSplit, Error> {
+        let config = load_config(&env);
+        let mut epoch = load_epoch(&env).ok_or(Error::NoActiveEpoch)?;
+
+        if epoch.status == Status::Settled {
+            return Err(Error::AlreadySettled);
+        }
+        if env.ledger().timestamp() < epoch.maturity_ts {
+            return Err(Error::NotMature);
+        }
+        if epoch.vault_shares <= 0 {
+            return Err(Error::NoVaultShares);
+        }
+
+        let vault = VaultClient::new(&env, &config.vault);
+        let me = env.current_contract_address();
+
+        // Read the balance rather than trusting the recorded share count, so a
+        // vault that disagrees about the position is caught rather than
+        // leaving value behind silently.
+        let actual_shares = vault.balance_of(&me);
+        if actual_shares < epoch.vault_shares {
+            return Err(Error::NoVaultShares);
+        }
+
+        // `owner == me` means no allowance is needed: the manager spends its
+        // own shares, and the vault's transfer out is authorised by the vault
+        // itself as the token source.
+        let value = vault.redeem(&epoch.vault_shares, &me, &me);
+        if value < 0 {
+            return Err(Error::InvalidAmount);
+        }
+
+        let settlement = strata_waterfall::settle(
+            epoch.senior_total,
+            epoch.junior_total,
+            epoch.rate_bps,
+            epoch.term_seconds,
+            value,
+        )
+        .map_err(map_waterfall)?;
+
+        // Defensive and cheap: the manager must actually hold the full payout
+        // before it promises anyone any of it.
+        let owed = settlement
+            .senior_payout
+            .checked_add(settlement.junior_payout)
+            .ok_or(Error::ArithmeticOverflow)?;
+        let held = token::Client::new(&env, &config.asset).balance(&me);
+        if held < owed {
+            return Err(Error::InvalidAmount);
+        }
+
+        epoch.value_redeemed = value;
+        epoch.senior_payout = settlement.senior_payout;
+        epoch.junior_payout = settlement.junior_payout;
+        epoch.vault_shares = 0;
+        epoch.status = Status::Settled;
+        store_epoch(&env, &epoch);
+
+        let split = ProjectedSplit {
+            senior_due: settlement.senior_due,
+            senior_payout: settlement.senior_payout,
+            junior_payout: settlement.junior_payout,
+        };
+
+        SettledEvent {
+            epoch_start_ts: epoch.start_ts,
+            value_redeemed: value,
+            senior_due: settlement.senior_due,
+            senior_payout: settlement.senior_payout,
+            junior_payout: settlement.junior_payout,
+        }
+        .publish(&env);
+
+        Ok(split)
+    }
+
+    /// Pays `claimant` their settled payout in `tranche`.
+    ///
+    /// Payouts are pro-rata by principal, with the ordinary floor division
+    /// that leaves dust behind. The **last** claim in a tranche is paid the
+    /// remainder instead, so the tranche pays out exactly its
+    /// `senior_payout` or `junior_payout` in total and invariant 1 holds at
+    /// the depositor level too. See spec section 8.
+    ///
+    /// Permissionless to call, but always for the named `claimant`, who must
+    /// authorise it. A position is not transferable, so there is no allowance
+    /// surface and nobody can claim on someone else's behalf.
+    pub fn claim(env: Env, claimant: Address, tranche: Tranche) -> Result<i128, Error> {
+        let config = load_config(&env);
+        let mut epoch = load_epoch(&env).ok_or(Error::NoActiveEpoch)?;
+
+        if epoch.status != Status::Settled {
+            return Err(Error::NoActiveEpoch);
+        }
+
+        claimant.require_auth();
+
+        let my_principal = load_position(&env, &claimant, tranche);
+        if my_principal <= 0 {
+            return Err(Error::NoPosition);
+        }
+
+        let (tranche_payout, tranche_paid, tranche_total, unclaimed) = match tranche {
+            Tranche::Senior => (
+                epoch.senior_payout,
+                epoch.senior_paid,
+                epoch.senior_total,
+                epoch.senior_unclaimed,
+            ),
+            Tranche::Junior => (
+                epoch.junior_payout,
+                epoch.junior_paid,
+                epoch.junior_total,
+                epoch.junior_unclaimed,
+            ),
+        };
+
+        let remaining = unclaimed
+            .checked_sub(my_principal)
+            .ok_or(Error::ArithmeticOverflow)?;
+
+        // Pro-rata against the tranche's *total* principal, which does not
+        // shrink as people claim. Dividing by the unclaimed remainder instead
+        // would give every later claimant a bigger slice than their share and
+        // overpay the tranche.
+        //
+        // The last claim takes the rounding remainder, so the tranche pays out
+        // exactly `tranche_payout` in aggregate and invariant 1 holds at the
+        // depositor level too. That is not griefable: the remainder is only
+        // reachable by someone who already holds a claimable position, and it
+        // is bounded by the dust from everyone's floor division.
+        let amount = if remaining == 0 {
+            tranche_payout
+                .checked_sub(tranche_paid)
+                .ok_or(Error::ArithmeticOverflow)?
+        } else {
+            mul_div(tranche_payout, my_principal, tranche_total)?
+        };
+
+        // Clear the position before paying out, so a re-entrant claim cannot
+        // spend the same principal twice.
+        store_position(&env, &claimant, tranche, 0);
+        match tranche {
+            Tranche::Senior => {
+                epoch.senior_unclaimed = remaining;
+                epoch.senior_paid = epoch
+                    .senior_paid
+                    .checked_add(amount)
+                    .ok_or(Error::ArithmeticOverflow)?;
+            }
+            Tranche::Junior => {
+                epoch.junior_unclaimed = remaining;
+                epoch.junior_paid = epoch
+                    .junior_paid
+                    .checked_add(amount)
+                    .ok_or(Error::ArithmeticOverflow)?;
+            }
+        }
+        store_epoch(&env, &epoch);
+
+        if amount > 0 {
+            let me = env.current_contract_address();
+            token::Client::new(&env, &config.asset).transfer(&me, &claimant, &amount);
+        }
+
+        ClaimEvent {
+            claimant,
+            tranche,
+            amount,
+        }
+        .publish(&env);
+
+        Ok(amount)
     }
 
     // --- epoch lifecycle ---
@@ -305,8 +634,8 @@ impl EpochManager {
                 max_senior_ratio_bps,
                 senior_total: 0,
                 junior_total: 0,
-                senior_shares_outstanding: 0,
-                junior_shares_outstanding: 0,
+                senior_unclaimed: 0,
+                junior_unclaimed: 0,
                 vault_shares: 0,
                 value_redeemed: 0,
                 senior_payout: 0,
@@ -339,7 +668,7 @@ impl EpochManager {
         if epoch.status != Status::Settled {
             return Err(Error::NotMature);
         }
-        if epoch.senior_shares_outstanding > 0 || epoch.junior_shares_outstanding > 0 {
+        if epoch.senior_unclaimed > 0 || epoch.junior_unclaimed > 0 {
             return Err(Error::ClaimsOutstanding);
         }
         epoch.status = Status::Closed;
@@ -379,7 +708,7 @@ impl EpochManager {
     /// A depositor's position in one tranche, and what it is currently worth.
     pub fn position_of(env: Env, who: Address, tranche: Tranche) -> Result<Position, Error> {
         let epoch = load_epoch(&env).ok_or(Error::NoActiveEpoch)?;
-        let shares = load_position(&env, &who, tranche);
+        let principal = load_position(&env, &who, tranche);
 
         let (tranche_payout, tranche_total) = match tranche {
             Tranche::Senior => (epoch.senior_payout, epoch.senior_total),
@@ -389,30 +718,31 @@ impl EpochManager {
         // Before settlement there is no `V`, so the figure is a projection
         // against the vault's live valuation. It becomes exact at settlement.
         let estimated_payout = if epoch.status == Status::Open {
-            project_position(&env, &epoch, tranche, shares)
+            project_position(&env, &epoch, tranche, principal)
         } else if tranche_total <= 0 {
             0
         } else {
-            mul_div(tranche_payout, shares, tranche_total)?
+            mul_div(tranche_payout, principal, tranche_total)?
         };
 
         Ok(Position {
-            shares,
+            principal,
             estimated_payout,
         })
     }
 
-    /// How much senior principal the gate would still admit, given the junior
-    /// principal deposited so far. Zero once deposits have closed.
+    /// How much *more* senior principal the gate would still admit, given the
+    /// junior principal deposited so far and what senior principal is already
+    /// in. Zero once deposits have closed.
     pub fn senior_room(env: Env) -> Result<i128, Error> {
         let epoch = load_epoch(&env).ok_or(Error::NoActiveEpoch)?;
         if epoch.status != Status::Open {
             return Ok(0);
         }
-        Ok(
+        let cap =
             strata_waterfall::max_senior_total(epoch.junior_total, epoch.max_senior_ratio_bps)
-                .unwrap_or(0),
-        )
+                .unwrap_or(0);
+        Ok(cap.saturating_sub(epoch.senior_total))
     }
 
     /// Seconds until maturity, or zero once it has passed.
@@ -486,6 +816,12 @@ fn load_position(env: &Env, who: &Address, tranche: Tranche) -> i128 {
         .unwrap_or(0)
 }
 
+fn store_position(env: &Env, who: &Address, tranche: Tranche, shares: i128) {
+    let key = DataKey::Position(who.clone(), tranche);
+    env.storage().persistent().set(&key, &shares);
+    bump(env, &key);
+}
+
 /// Extends an entry's time-to-live. Silently does nothing if the entry has
 /// already been restored or removed, which is the right behaviour: TTL upkeep
 /// must never be the thing that fails a deposit.
@@ -506,8 +842,8 @@ fn mul_div(a: i128, b: i128, c: i128) -> Result<i128, Error> {
 }
 
 /// Projects a depositor's shares against the vault's live valuation.
-fn project_position(env: &Env, epoch: &Epoch, tranche: Tranche, shares: i128) -> i128 {
-    if shares <= 0 || epoch.vault_shares <= 0 {
+fn project_position(env: &Env, epoch: &Epoch, tranche: Tranche, principal: i128) -> i128 {
+    if principal <= 0 || epoch.vault_shares <= 0 {
         return 0;
     }
     let config = load_config(env);
@@ -529,7 +865,7 @@ fn project_position(env: &Env, epoch: &Epoch, tranche: Tranche, shares: i128) ->
     if tranche_total <= 0 {
         return 0;
     }
-    mul_div(tranche_payout, shares, tranche_total).unwrap_or(0)
+    mul_div(tranche_payout, principal, tranche_total).unwrap_or(0)
 }
 
 /// Maps a waterfall error onto the contract's error enum.

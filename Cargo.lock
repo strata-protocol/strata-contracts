@@ -1974,6 +1974,10 @@ name = "strata-tests"
 version = "0.1.0"
 dependencies = [
  "proptest",
+ "soroban-sdk",
+ "strata-epoch-manager",
+ "strata-mock-vault",
+ "strata-vault-interface",
  "strata-waterfall",
 ]
 

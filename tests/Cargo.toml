@@ -15,4 +15,8 @@ doctest = false
 
 [dev-dependencies]
 strata-waterfall = { workspace = true }
+soroban-sdk = { workspace = true, features = ["testutils"] }
 proptest = { workspace = true }
+strata-epoch-manager = { workspace = true, features = ["testutils"] }
+strata-mock-vault = { workspace = true, features = ["testutils"] }
+strata-vault-interface = { workspace = true }
