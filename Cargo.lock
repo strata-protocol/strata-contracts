@@ -241,6 +241,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "strata-tests"
+version = "0.1.0"
+dependencies = [
+ "proptest",
+ "strata-waterfall",
+]
+
+[[package]]
 name = "strata-waterfall"
 version = "0.1.0"
 dependencies = [

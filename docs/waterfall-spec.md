@@ -172,7 +172,7 @@ sits below the senior's claim.
 
 ## 6. Invariants
 
-Each invariant has at least one property test in `tests/waterfall_props.rs`.
+Each invariant has at least one property test in `tests/src/waterfall_props.rs`.
 Treat a failure of any of them as a critical bug.
 
 ### 1. Conservation
@@ -287,7 +287,7 @@ Its only observable effect is to reject a zero-amount senior deposit.
 
 If you want the original behaviour exactly, remove the `junior_total <= 0`
 check in `check_senior_deposit` and the corresponding assertions in
-`tests/waterfall_props.rs`. No payout arithmetic depends on it.
+ `tests/src/waterfall_props.rs`. No payout arithmetic depends on it.
 
 ---
 
