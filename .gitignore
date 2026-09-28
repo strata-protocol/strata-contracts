@@ -1,0 +1,18 @@
+/target
+**/*.rs.bk
+*.pdb
+
+# stellar-cli
+.stellar/
+*.json.tmp
+
+# local env / secrets
+.env
+.env.*
+!.env.example
+
+# editors
+.idea/
+.vscode/
+*.swp
+.DS_Store

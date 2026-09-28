@@ -1,0 +1,49 @@
+---
+name: Bug report
+about: Something behaves differently from docs/waterfall-spec.md
+title: "bug: "
+labels: bug, "drips:1"
+assignees: ''
+---
+
+## What happened
+
+<!-- What you observed. Prefer the literal numbers over a description. -->
+
+## What you expected
+
+<!-- What the spec says should happen, with a link to the clause. -->
+
+## Reproduction
+
+<!-- Inputs: S, J, r (bps), t (seconds), V, max_senior_ratio, underlying yield. -->
+
+```text
+S      =
+J      =
+r      =  bps/year
+t      =  seconds
+V      =
+yield  =
+```
+
+## Which invariant
+
+<!-- If you know, name the invariant that failed (1-5 in docs/waterfall-spec.md). -->
+- [ ] 1. senior_payout + junior_payout == V
+- [ ] 2. senior_payout <= senior_due
+- [ ] 3. junior_payout > 0 only if senior_payout == senior_due
+- [ ] 4. both payouts non-decreasing in V
+- [ ] 5. nothing overflows within documented limits
+- [ ] none / not sure
+
+## Environment
+
+- commit or contract version:
+- `soroban-sdk` version: <!-- e.g. 27.0.6 -->
+- network: <!-- testnet / local only. There is no mainnet deployment. -->
+- `stellar --version`:
+
+## Anything else
+
+<!-- Logs, event output, a failing test you wrote. -->

@@ -1,0 +1,18 @@
+# Normalize line endings in the repository to LF, check them out as LF.
+# Keeps `cargo fmt --check` and the CI rustfmt job from disagreeing across OSes.
+* text=auto eol=lf
+
+*.rs text eol=lf
+*.toml text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+
+# Keep the license text byte-exact; the Apache appendix spacing matters.
+LICENSE text eol=lf
+
+# Binary-ish artifacts that must never be line-ending translated.
+*.wasm binary
+*.png binary
+*.jpg binary

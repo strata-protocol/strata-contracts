@@ -1,0 +1,12 @@
+---
+name: Blank issue
+about: Anything that does not fit the other templates
+title: ''
+labels: 'drips:1'
+assignees: ''
+---
+
+<!--
+Prefer bug_report.yml, feature_request.yml, or spec_question.yml.
+If you landed here, say which one nearly fit and why it did not.
+-->

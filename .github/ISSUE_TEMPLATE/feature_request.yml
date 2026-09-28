@@ -1,0 +1,42 @@
+---
+name: Feature request
+about: New behaviour that does not change the waterfall spec
+title: "feat: "
+labels: "drips:1", audit
+assignees: ''
+---
+
+Read the ground rules in [CONTRIBUTING.md](CONTRIBUTING.md) first.
+
+## The problem
+
+<!-- What is painful or missing today. Not what you want to build. -->
+
+## The proposal
+
+<!-- What you want to happen. -->
+
+## Does this touch the waterfall spec?
+
+- [ ] No. Settlement math, branching condition, and invariants are unchanged.
+- [ ] **Yes.** Stop here and open a `spec` issue instead. Spec changes are a
+      maintainer decision, not a pull request.
+
+If you are unsure, it touches the spec.
+
+## Wave points
+
+<!-- Pick the label that matches the scope. Roughly the size of the change. -->
+
+- [ ] `drips:1` small (1 point) — docs, tests, one-line clarity
+- [ ] `drips:3` medium (3 points) — one crate, with tests
+- [ ] `drips:5` large (5 points) — multi-crate, new storage, new events
+- [ ] `drips:8` complex (8 points) — auth, settlement math, storage layout
+
+## Alternatives considered
+
+<!-- Including "do nothing", which is often the right answer. -->
+
+## Threat model
+
+<!-- If this touches auth, deposits, or settlement, say who can do what afterwards. -->

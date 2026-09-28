@@ -1,0 +1,41 @@
+---
+name: Spec question
+about: A question or proposed change to docs/waterfall-spec.md
+title: "spec: "
+labels: spec, "drips:8", audit
+assignees: ''
+---
+
+The waterfall spec is the source of truth. This template is for questions about
+it and proposals to change it, not for code.
+
+## Current clause
+
+<!-- Quote the exact lines from docs/waterfall-spec.md. -->
+
+## The question or proposal
+
+## Failing case, if you have one
+
+<!-- Concrete numbers. A table of S, J, r, t, V and the payouts each way. -->
+
+| S | J | r (bps) | t (s) | V | senior_payout (current) | junior_payout (current) |
+| --- | --- | --- | --- | --- | --- | --- |
+| | | | | | | |
+
+## Which invariant is at stake
+
+- [ ] 1. `senior_payout + junior_payout == V`
+- [ ] 2. `senior_payout <= senior_due`
+- [ ] 3. `junior_payout > 0` only if `senior_payout == senior_due`
+- [ ] 4. both payouts non-decreasing in V
+- [ ] 5. nothing overflows within documented limits
+
+## Blast radius
+
+<!-- Who loses money if the spec changes? Which deployed testnet state becomes
+     un-settleable? Does this require a migration? -->
+
+## Migration plan
+
+<!-- If this ships, how do existing open epochs get settled under the old rules? -->
