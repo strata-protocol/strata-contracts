@@ -1,0 +1,47 @@
+[workspace]
+resolver = "2"
+members = [
+    "contracts/waterfall",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.98.0"
+publish = false
+license = "Apache-2.0"
+repository = "https://github.com/strata-finance/strata-contracts"
+
+[workspace.dependencies]
+# The only Soroban SDK version this project is ever built against. Bump this
+# one line, in its own commit, and let CI prove the contracts still build and
+# pass. Do not let two SDK majors coexist in this workspace: contract binaries
+# are only portable within a single SDK major.
+soroban-sdk = "27.0.6"
+
+strata-waterfall = { path = "contracts/waterfall" }
+strata-vault-interface = { path = "contracts/vault-interface" }
+strata-epoch-manager = { path = "contracts/epoch-manager" }
+strata-mock-vault = { path = "contracts/mock-vault" }
+
+# Kept out of any non-test dependency tree on purpose.
+proptest = "1"
+
+[profile.release]
+opt-level = "z"
+# Mandatory. See CVE-2026-24889: without overflow checks, arithmetic in
+# soroban-sdk silently wraps instead of trapping. Never set this to false.
+overflow-checks = true
+debug = 0
+strip = "symbols"
+lto = true
+codegen-units = 1
+panic = "abort"
+
+# `cargo test` runs the native profile; keep the checks on there too so a
+# wrapped overflow shows up in a unit test rather than only in Wasm.
+[profile.test]
+overflow-checks = true
+
+[profile.dev]
+overflow-checks = true

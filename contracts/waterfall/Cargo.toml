@@ -1,0 +1,25 @@
+[package]
+name = "strata-waterfall"
+description = "Pure senior/junior settlement math for Strata. No storage, no Env."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# An rlib, deliberately not a cdylib. This crate has no `Env`, no storage and
+# no contract entry points, so there is nothing to deploy. `stellar contract
+# build` skips it and links it into epoch-manager instead.
+[lib]
+crate-type = ["rlib"]
+doctest = false
+
+# Deliberately no soroban-sdk dependency. The settlement math is integer
+# arithmetic on i128 and nothing more, so keeping it free of the SDK means
+# the property tests need no Env, no ledger, and no testutils feature, and
+# run in milliseconds.
+[dependencies]
+
+[dev-dependencies]
+proptest = { workspace = true }

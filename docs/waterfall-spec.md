@@ -239,30 +239,55 @@ S_total * BPS_DENOMINATOR <= J_total * max_senior_ratio_bps
 with `0 < max_senior_ratio_bps <= MAX_SENIOR_RATIO_BPS` fixed at epoch
 creation.
 
-The second condition is written cross-multiplied rather than as
-`S_total <= J_total * ratio / 10_000` on purpose: dividing would silently floor
-the cap and make the effective ratio depend on the size of `J`. Multiplying
-out keeps the comparison exact.
+The second condition is written cross-multiplied as
+`S_total * 10_000 <= J_total * ratio_bps` rather than as
+`S_total <= J_total * ratio_bps / 10_000`.
+
+These two forms are **exactly equivalent** here, because `S_total` is an
+integer and `S <= x` is equivalent to `S <= floor(x)` for integer `S`. The
+cross-multiplied form is used only because it mirrors the spec's inequality
+directly and needs no division.
+
+Flooring is not irrelevant, though — it just belongs in a different place. The
+reporting helper `max_senior_total(j, ratio)` does floor, and it must: it
+answers "what is the largest senior total I could deposit", which is a
+discrete amount, so the answer is `floor(J * ratio / 10_000)`. That is
+consistent with the gate by the equivalence above, and a property test pins
+the two together so they cannot drift.
 
 Junior deposits are never gated. Junior capital is what makes the structure
 safe, so it is always welcome.
 
 ### Deviation note: the `J_total > 0` condition
 
-The first condition is an approved refinement of the original rule, which read
-only `S <= J * max_senior_ratio`.
+The first condition is an addition to the original rule, which read only
+`S <= J * max_senior_ratio`.
 
-That rule is **vacuously true on an empty epoch**. With `S_total = 0` and
-`J_total = 0` it evaluates to `0 <= 0`, so an arbitrarily large first senior
-deposit would be accepted with no junior capital whatsoever. That directly
-contradicts the stated intent that the junior buffer is always real, and
-[§3](#why-these-bounds) shows the buffer-coverage property fails at `S = 0,
-J = 0`.
+**It is redundant, and it is kept as defense-in-depth rather than as a bug
+fix.** The reasoning that produced it was wrong, and the correction is recorded
+here rather than quietly dropped.
 
-The extra condition closes the hole in one line and changes no payout
-arithmetic. Approved 2026-09-28 as a `spec` issue. If you want the literal
-original behaviour, this is the line to remove — and the corresponding property
-test in `tests/waterfall_props.rs`.
+The original concern was that the rule is vacuously true on an empty epoch:
+with `S_total = 0` and `J_total = 0` it reads `0 <= 0`. But the totals are
+evaluated *after* the pending deposit, so the case that matters is a first
+senior deposit of amount `d` into an empty epoch, which leaves
+`S_total = d` and `J_total = 0`. The ratio condition then requires
+`d * 10_000 <= 0`, which is false for every `d > 0`. The ratio rule alone
+already rejects an unbacked senior deposit; only a zero-amount no-op deposit
+gets through, and that one is worth rejecting too.
+
+The condition is retained because it states the "junior buffer is always real"
+invariant directly and auditably, instead of leaving it as something a reader
+has to derive from the algebra. It is also load-bearing if the ratio rule is
+ever relaxed — for example if `max_senior_ratio_bps` were ever permitted above
+`MAX_SENIOR_RATIO_BPS`, the ratio half would no longer imply `S <= J` and this
+would be the only thing stopping an unbacked deposit.
+
+Its only observable effect is to reject a zero-amount senior deposit.
+
+If you want the original behaviour exactly, remove the `junior_total <= 0`
+check in `check_senior_deposit` and the corresponding assertions in
+`tests/waterfall_props.rs`. No payout arithmetic depends on it.
 
 ---
 
