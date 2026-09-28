@@ -1,0 +1,21 @@
+[package]
+name = "strata-vault-interface"
+description = "The ERC-4626 subset Strata requires of an underlying vault."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# An rlib, not a cdylib: this crate contains no logic, only the interface
+# trait and the generated client that epoch-manager links against.
+[lib]
+crate-type = ["rlib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
