@@ -4,6 +4,7 @@ members = [
     "contracts/waterfall",
     "contracts/vault-interface",
     "contracts/mock-vault",
+    "contracts/epoch-manager",
     "tests",
 ]
 

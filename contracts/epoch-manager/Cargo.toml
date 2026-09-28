@@ -1,0 +1,31 @@
+[package]
+name = "strata-epoch-manager"
+description = "Opens fixed-term Strata epochs, takes senior and junior deposits, and settles the waterfall."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+# cdylib for a deployable Wasm, rlib so the integration tests register it
+# natively and call it across contracts.
+crate-type = ["cdylib", "rlib"]
+doctest = false
+
+[features]
+# Required by the integration tests in `tests/`, which register this contract
+# with `env.register`.
+testutils = []
+
+[dependencies]
+soroban-sdk = { workspace = true }
+strata-waterfall = { workspace = true }
+strata-vault-interface = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
+strata-mock-vault = { workspace = true, features = ["testutils"] }
+strata-vault-interface = { workspace = true }
+strata-waterfall = { workspace = true }

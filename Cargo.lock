@@ -1952,6 +1952,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "strata-epoch-manager"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+ "strata-mock-vault",
+ "strata-vault-interface",
+ "strata-waterfall",
+]
+
+[[package]]
 name = "strata-mock-vault"
 version = "0.1.0"
 dependencies = [
