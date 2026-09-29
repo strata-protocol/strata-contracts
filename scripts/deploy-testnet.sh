@@ -79,11 +79,30 @@ echo "==> building contracts"
 stellar contract build
 
 WASM_DIR="target/wasm32v1-none/release"
-MANAGER_WASM="$WASM_DIR/soroban_strata_epoch_manager.wasm"
-VAULT_WASM="$WASM_DIR/soroban_strata_mock_vault.wasm"
+
+# Discovered by glob rather than hardcoded. `stellar contract build` names the
+# output after the contract spec, which is not guaranteed to match the crate
+# name, and hardcoding a filename here would break on an SDK upgrade. Any
+# single wasm containing the marker wins.
+find_wasm() {
+    local marker="$1"
+    local found=()
+    local candidate
+    for candidate in "$WASM_DIR"/*"$marker"*.wasm; do
+        [ -f "$candidate" ] && found+=("$candidate")
+    done
+    if [ "${#found[@]}" -eq 0 ]; then
+        return 1
+    fi
+    printf '%s\n' "${found[0]}"
+}
+
+MANAGER_WASM=$(find_wasm epoch_manager) ||
+    die "no wasm matching *epoch_manager* in $WASM_DIR. Did 'stellar contract build' run?"
+VAULT_WASM=$(find_wasm mock_vault) ||
+    die "no wasm matching *mock_vault* in $WASM_DIR. Did 'stellar contract build' run?"
 
 for wasm in "$MANAGER_WASM" "$VAULT_WASM"; do
-    [ -f "$wasm" ] || die "expected $wasm. Did 'stellar contract build' run?"
     echo "==> $wasm ($(wc -c <"$wasm" | tr -d ' ') bytes)"
 done
 
