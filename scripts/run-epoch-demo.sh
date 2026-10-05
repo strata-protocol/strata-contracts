@@ -2,15 +2,23 @@
 
 # Strata epoch demo — TESTNET ONLY. UNAUDITED.
 #
-# > **STATUS: scenario `good` VERIFIED on Stellar testnet on 2026-10-05**, with
-# > Stellar CLI 28.1.0 and soroban-sdk 27.0.6, against protocol 29. Every check
-# > passed: `V = 2_000_204_528`, `senior_due = senior_payout = 1_000_009_512`,
-# > `junior_payout = 1_000_195_016`, and the two payouts sum exactly to `V`.
-# > The senior took 9_512 of the vault's 204_528 gain, exactly its target, and
-# > the junior took the remaining 195_016 — the cap binding, as the spec says.
+# > **STATUS: VERIFIED on Stellar testnet on 2026-10-05**, both scenarios, with
+# > Stellar CLI 28.1.0 and soroban-sdk 27.0.6, against protocol 29.
 # >
-# > **Scenario `loss` is UNVERIFIED** at the time of writing this line; run it and
-# > check its section below before treating it as working.
+# > `good`, term 300s, senior target 10_000bps, vault yield +100_000bps:
+# > `V = 2_000_204_528`, `senior_due = senior_payout = 1_000_009_512`,
+# > `junior_payout = 1_000_195_016`. The senior took 9_512 of the vault's
+# > 204_528 gain, exactly its target, and the junior took the remaining 195_016:
+# > the cap binding, which is the whole point of the senior tranche.
+# >
+# > `loss`, same terms, vault yield -100_000bps:
+# > `V = 1_999_836_692`, `senior_due = senior_payout = 1_000_009_512`,
+# > `junior_payout = 999_827_180`. The senior was made whole and still gained its
+# > 9_512 target; the junior lost 172_820 of its 1_000_000_000. Paid first, junior
+# > absorbs first.
+# >
+# > In both runs the two payouts summed to `V` exactly, and each tranche paid out
+# > exactly its own payout across the claims.
 #
 # "Verified" means this script ran to completion on testnet with every assertion
 # passing. It does not mean the contracts are audited. They are not. Do not use
