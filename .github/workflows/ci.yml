@@ -82,24 +82,25 @@ jobs:
       # `stellar-cli` is not a pure-Rust binary: parts of it need system
       # libraries at build time, and each missing one surfaces as a confusing
       # panic from some dependency's build script rather than as a clear "package
-      # not found". Which ones depends on the resolved dependency graph, so the
-      # known set is installed up front:
+      # not found". Checked against stellar-cli's own Cargo.lock for the pinned
+      # version, which is the honest way to answer this:
       #
-      #   libdbus-1-dev  libdbus-sys, for the keyring
+      #   libdbus-1-dev  libdbus-sys, reached through keyring
       #   libudev-dev    hidapi, which backs hardware-wallet support
-      #   libssl-dev     openssl-sys, via reqwest's TLS stack
       #   pkg-config     the pkg-config build script all of the above use
+      #
+      # No openssl package is needed: reqwest is built with `rustls-tls`, so
+      # openssl-sys is absent from the lockfile.
       #
       # This step was failing on main for this reason, one missing package at a
       # time. `cargo install` is kept rather than downloading a prebuilt binary
-      # because crates.io verifies every crate's checksum; a release asset from
-      # GitHub ships no published checksum to check against.
+      # because crates.io verifies every crate's checksum, whereas a release
+      # asset on GitHub ships no published checksum to check against.
       - name: Install the Stellar CLI
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libdbus-1-dev \
-            libssl-dev \
             libudev-dev \
             pkg-config
           cargo install stellar-cli --locked
