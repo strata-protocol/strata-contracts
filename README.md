@@ -89,14 +89,30 @@ misreadable property of the design and it is called out in
 | `docs/architecture.md` | **Done** | Layout, data flow, storage, authorisation. |
 | `docs/risks.md` | **Done** | Working risk register, including realised bugs. |
 | CI | **Done** | fmt, clippy, test, wasm build, spec consistency, audit. |
-| `scripts/deploy-testnet.sh` | **Unverified** | Network guard tested, wasm discovery tested. Never run against a live network. |
-| Testnet deployment | **Not started** | Blocked on funded testnet credentials. |
+| `scripts/deploy-testnet.sh` | **Done** | Run against testnet on 2026-10-05. Mainnet guard tested; deployment verified. |
+| Testnet deployment | **Done** | [epoch-manager](https://stellar.expert/explorer/testnet/contract/CB57H6NE7CIPHEDO2HJT7IX55NHP6RXI2EPSUIGK65NLG5CCXC4JB7QU) and [mock-vault](https://stellar.expert/explorer/testnet/contract/CDWJS65BA26QBTA4L6LBX76B2XPGAQHY25USI6Z3MSQ73T5NQTXARSQ6) live on testnet. See [`docs/deployment.md`](docs/deployment.md). |
+| `scripts/run-epoch-demo.sh` | **Done** | A real good epoch and a real loss epoch, settled and checked against the spec on testnet. |
+| `scripts/extend-ttl-testnet.sh` | **Done** | Extends the deployed instances and Wasm. Does **not** close R9. |
+| TTL audit for per-user positions (R9) | **Not started** | Still open. See [`docs/risks.md`](docs/risks.md). |
 | `strata-app` SDK + dashboard | **Not started** | Separate repo. Needs a pinned contract version. |
 | External audit | **Not started** | Not requested. |
 | Mainnet support | **Out of scope** | Deliberately. This project will not do it. |
 
-"Unverified" and "not started" are stated as they are. Nothing in this table is
-placeholder code presented as finished.
+"Unverified", "not started" and "out of scope" are stated as they are. Nothing
+in this table is placeholder code presented as finished.
+
+### What ran on testnet
+
+Not a simulation, and not the test suite. Real transactions on Stellar testnet,
+settled against the spec:
+
+| Scenario | `V` redeemed | `senior_payout` | `junior_payout` | Result |
+| --- | --- | --- | --- | --- |
+| `good` | 2 000 204 528 | 1 000 009 512 | 1 000 195 016 | senior capped at its target, junior took the excess |
+| `loss` | 1 999 836 692 | 1 000 009 512 | 999 827 180 | senior made whole, junior absorbed the loss |
+
+In both, the two payouts summed to `V` exactly. Transaction hashes are in
+[`docs/deployment.md`](docs/deployment.md).
 
 ## Quickstart
 
@@ -121,11 +137,14 @@ network access and no credentials are needed for any of it.
 
 ### Building the contracts
 
+Install the Stellar CLI once — a prebuilt binary from the official
+[stellar-cli releases page](https://github.com/stellar/stellar-cli/releases) is
+much faster than `cargo install`:
+
 ```bash
-cargo install stellar-cli --locked
 stellar contract build
-# -> target/wasm32v1-none/release/strata_epoch_manager.wasm
-# -> target/wasm32v1-none/release/strata_mock_vault.wasm
+# -> target/wasm32v1-none/release/strata_epoch_manager.wasm   (25964 bytes)
+# -> target/wasm32v1-none/release/strata_mock_vault.wasm     ( 9638 bytes)
 ```
 
 `cargo build` does **not** produce a deployable contract. The Soroban runtime
@@ -139,19 +158,38 @@ cargo build --target wasm32v1-none --release \
 ```
 
 That verifies the `no_std` code, which is the part most likely to break, but
-the resulting artefacts are **not** deployable — `stellar contract build`
-applies further build settings the runtime requires. This has been run and both
-contracts compile clean; `stellar contract build` itself is exercised only in
-CI.
+the resulting artefacts are **not** deployable — `stellar contract build` runs
+wasm-opt and applies further build settings the runtime requires. The artefacts
+it produces are smaller than a plain `cargo build`'s for that reason. This was
+run for both contracts and they compile clean; CI runs the real
+`stellar contract build`.
 
 ### Deploying to testnet
 
+It is deployed. Current contract IDs are in
+[`deployments/testnet.json`](deployments/testnet.json), and
+[`docs/deployment.md`](docs/deployment.md) has the full guide.
+
+To deploy a fresh pair:
+
 ```bash
-./scripts/deploy-testnet.sh <path-to-identity-file> testnet
+stellar keys generate --network testnet --fund strata-deployer
+./scripts/deploy-testnet.sh strata-deployer testnet
 ```
 
 The script refuses any network outside a hardcoded allowlist, and CI runs that
-refusal as a test. It has otherwise never been run — see the status table.
+refusal as a test. It writes `deployments/testnet.json` with the contract IDs,
+wasm hashes and CLI and SDK versions.
+
+To watch a whole epoch run, and have every figure checked against
+[`docs/waterfall-spec.md`](docs/waterfall-spec.md):
+
+```bash
+./scripts/run-epoch-demo.sh good   # ~6 minutes, mostly waiting
+./scripts/run-epoch-demo.sh loss   # ~6 minutes, mostly waiting
+```
+
+[`docs/demo-runbook.md`](docs/demo-runbook.md) is the screen-recording script.
 
 ### Reading the code
 
