@@ -86,18 +86,28 @@ jobs:
       - name: Build the contracts
         run: stellar contract build
 
+      # Counting wasm files is not enough: it passes if the SDK renames a
+      # contract and only one of them builds. Both deployable contracts are
+      # named explicitly, because a silently missing artefact here only shows
+      # up much later as a failed deployment.
       - name: Check the artefacts
         run: |
           set -euo pipefail
-          found=0
           for wasm in target/wasm32v1-none/release/*.wasm; do
             echo "built: $wasm ($(stat -c%s "$wasm") bytes)"
-            found=$((found + 1))
           done
-          if [ "$found" -lt 2 ]; then
-            echo "expected epoch-manager and mock-vault wasm, found $found"
-            exit 1
-          fi
+          for name in strata_epoch_manager strata_mock_vault; do
+            wasm="target/wasm32v1-none/release/${name}.wasm"
+            if [ ! -f "$wasm" ]; then
+              echo "missing $wasm - did 'stellar contract build' succeed?"
+              exit 1
+            fi
+            if [ ! -s "$wasm" ]; then
+              echo "$wasm is empty"
+              exit 1
+            fi
+          done
+          echo "both deployable contracts present"
 
   docs:
     name: docs are current
