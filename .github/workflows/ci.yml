@@ -79,8 +79,17 @@ jobs:
       # runtime only accepts wasm32v1-none built by `stellar contract build`,
       # which applies the required build settings. This job exists to prove
       # that still works for every contract in the workspace.
+      # `stellar-cli` pulls in `libdbus-sys` for its keyring support, which
+      # needs libdbus and pkg-config at build time. Without them this step fails
+      # with a `pkg_config failed` panic from libdbus-sys' build script, which is
+      # a confusing way to learn that a system package is missing. This step was
+      # failing on main for exactly that reason.
       - name: Install the Stellar CLI
         run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libdbus-1-dev \
+            pkg-config
           cargo install stellar-cli --locked
 
       - name: Build the contracts
