@@ -79,16 +79,28 @@ jobs:
       # runtime only accepts wasm32v1-none built by `stellar contract build`,
       # which applies the required build settings. This job exists to prove
       # that still works for every contract in the workspace.
-      # `stellar-cli` pulls in `libdbus-sys` for its keyring support, which
-      # needs libdbus and pkg-config at build time. Without them this step fails
-      # with a `pkg_config failed` panic from libdbus-sys' build script, which is
-      # a confusing way to learn that a system package is missing. This step was
-      # failing on main for exactly that reason.
+      # `stellar-cli` is not a pure-Rust binary: parts of it need system
+      # libraries at build time, and each missing one surfaces as a confusing
+      # panic from some dependency's build script rather than as a clear "package
+      # not found". Which ones depends on the resolved dependency graph, so the
+      # known set is installed up front:
+      #
+      #   libdbus-1-dev  libdbus-sys, for the keyring
+      #   libudev-dev    hidapi, which backs hardware-wallet support
+      #   libssl-dev     openssl-sys, via reqwest's TLS stack
+      #   pkg-config     the pkg-config build script all of the above use
+      #
+      # This step was failing on main for this reason, one missing package at a
+      # time. `cargo install` is kept rather than downloading a prebuilt binary
+      # because crates.io verifies every crate's checksum; a release asset from
+      # GitHub ships no published checksum to check against.
       - name: Install the Stellar CLI
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libdbus-1-dev \
+            libssl-dev \
+            libudev-dev \
             pkg-config
           cargo install stellar-cli --locked
 
