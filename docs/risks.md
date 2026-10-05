@@ -226,14 +226,41 @@ Soroban contract binaries are only portable within a single SDK major. A
 alone in its own commit. `overflow-checks = true` in every profile, mandatory
 per CVE-2026-24889, with a test that fails if it is ever disabled.
 
-*Open:* no `cargo audit` in CI. No dependency review.
+*Now also verified against a real network:* soroban-sdk 27.0.6 built under
+Stellar CLI 28.1.0 and deployed to a protocol 29 testnet, where both contracts
+settled real epochs. Note that the CLI ships `stellar-xdr` 28.0.0 against an SDK
+27 workspace — that pairing was verified empirically rather than assumed, and a
+future CLI bump could break it silently.
 
-### R17 — No mainnet guardrail exists yet — **Medium**
+*Open:* `cargo audit` runs in CI but is `continue-on-error: true`, so it reports
+without blocking. No dependency review. Nothing checks that the CLI version used
+to build is compatible with the SDK version pinned here.
+
+### R17 — Mainnet guardrail — **Low, closed**
 
 This repository is testnet-only by policy. Policy is not a control.
 
-*Open:* the deploy script that would refuse a mainnet passphrase does not exist
-yet. It must, before anything is deployed anywhere.
+*Now:* the control exists. `scripts/deploy-testnet.sh` holds an allowlist of
+networks and refuses anything else **before** validating its other arguments, so
+asking for `mainnet` fails on the network regardless of what else is wrong with
+the invocation. `--self-test` exercises the refusal, and CI runs that on every
+push. `run-epoch-demo.sh` and `extend-ttl-testnet.sh` carry the same guard.
+
+*Open:* the allowlist also permits `local` and `futurenet`. Neither is mainnet
+and neither has been used — only `testnet` was. Adding a real network is a
+reviewed change to that list, not a flag.
+
+### R17a — Unpinned, unsigned deployment — **Medium**
+
+Nothing binds a deployed contract to a commit. `deployments/testnet.json` records
+the wasm hashes and the SDK version, and the on-chain wasm hash was checked
+against the local build, so a mismatch is *detectable* — but nothing verifies the
+hash on mainnet, and there is no signature or attestation tying a running
+contract to a reviewed commit.
+
+*Open:* no reproducible or verifiable deployment story. A client cannot prove
+which source produced a deployed contract. Worth fixing before anything holds
+real value.
 
 ### R18 — Unaudited claims in the README — **Low**
 
