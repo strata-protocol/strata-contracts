@@ -22,7 +22,7 @@ implementation of a tranche wrapper on Stellar Soroban. Read
 ## Getting set up
 
 ```bash
-git clone https://github.com/strata-finance/strata-contracts
+git clone https://github.com/strata-protocol/strata-contracts
 cd strata-contracts
 rustup show                 # rust-toolchain.toml pins the toolchain + wasm target
 cargo test

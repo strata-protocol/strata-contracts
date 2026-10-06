@@ -120,7 +120,7 @@ Requirements: a Rust toolchain (pinned in `rust-toolchain.toml`) and the Stellar
 CLI for the Wasm build.
 
 ```bash
-git clone https://github.com/strata-finance/strata-contracts
+git clone https://github.com/strata-protocol/strata-contracts
 cd strata-contracts
 
 cargo test                                     # the whole suite
@@ -236,9 +236,9 @@ Security reports go through [`SECURITY.md`](SECURITY.md), not a public issue.
 
 ## Related repositories
 
-- [`strata-app`](https://github.com/strata-finance/strata-app) — TypeScript SDK
+- [`strata-app`](https://github.com/strata-protocol/strata-app) — TypeScript SDK
   generated from these contract specs, pinned to a contract version, plus the
-  dashboard. Not started.
+  dashboard. In progress; the repository does not exist yet.
 
 ## License
 

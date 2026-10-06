@@ -152,7 +152,7 @@ Not run. Not to be run before review and after the PR is merged.
 ```bash
 # 1. Merge the PR first. This release notes file ships inside the repo, so it
 #    must be on the default branch before the tag.
-#    (https://github.com/sulaimonifeoluwa4-blip/strata-contract/pull)
+#    (https://github.com/strata-protocol/strata-contracts/pulls)
 
 # 2. Confirm the branch you are on is the default branch and is up to date.
 git checkout main
@@ -177,9 +177,14 @@ gh release create v0.1.0 \
 
 Two things to change before running step 5, because they are not yours to decide:
 
-- The repository in `Cargo.toml`, the README and `docs/deployment.md` currently
-  says `strata-finance/strata-contracts`, while the `origin` remote is
-  `sulaimonifeoluwa4-blip/strata-contract`. Reconcile those before publishing.
 - The status of the TTL audit (R9) and the external audit. Both are listed as
   open above; if either has moved by release time, this file is wrong and
   should be corrected rather than the risk dismissed.
+
+(The repository and organisation references in this file were previously
+inconsistent with the checkout's `origin` remote. The repository has since been
+transferred to `strata-protocol/strata-contracts` and every reference now agrees,
+so that item is closed.)
+
+`strata-app` is referenced above as the SDK and dashboard. It does not exist yet,
+so nothing in this release depends on it.

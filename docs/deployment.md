@@ -73,7 +73,7 @@ ledgers. Every epoch below is budgeted around that.
 ## Reproducing it from scratch
 
 ```bash
-git clone https://github.com/strata-finance/strata-contracts
+git clone https://github.com/strata-protocol/strata-contracts
 cd strata-contracts
 rustup target add wasm32v1-none
 
