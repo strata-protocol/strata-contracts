@@ -9,6 +9,16 @@
 *.yaml text eol=lf
 *.json text eol=lf
 
+# Named explicitly, not left to the `* text=auto eol=lf` wildcard above.
+#
+# The scripts in scripts/ are executed directly by CI and by contributors, so a
+# CRLF checkout is not cosmetic: bash reads a shebang line containing a stray
+# carriage return as part of the interpreter path and fails with "bad
+# interpreter". `* text=auto` only applies eol=lf because git can tell these are
+# text; being explicit means the requirement survives a future edit to the
+# wildcard, and it documents the reason next to the rule.
+*.sh text eol=lf
+
 # Keep the license text byte-exact; the Apache appendix spacing matters.
 LICENSE text eol=lf
 
