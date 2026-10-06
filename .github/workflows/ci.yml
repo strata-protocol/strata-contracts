@@ -173,6 +173,14 @@ jobs:
       - name: The deploy script refuses non-testnets
         run: ./scripts/deploy-testnet.sh --self-test
 
+      # Branch protection is set by a maintainer from a script, not by this
+      # repository, so the one thing CI can usefully do is prove the script still
+      # refuses the wrong repository and still names every job in this file.
+      # That last part is the valuable one: rename a job here and forget to
+      # re-apply protection, and the required check silently stops existing.
+      - name: The branch protection script is sound
+        run: ./scripts/set-branch-protection.sh --self-test
+
   audit:
     name: dependency audit
     runs-on: ubuntu-latest
