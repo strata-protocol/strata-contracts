@@ -178,11 +178,20 @@ gh release create v0.1.0 \
   --notes-file docs/release-notes-v0.1.0.md
 ```
 
-Two things to change before running step 5, because they are not yours to decide:
+Before running step 5, two things are a maintainer's decision and not an agent's.
+Both are about whether this release should exist at all in this shape.
 
-- The status of the TTL audit (R9) and the external audit. Both are listed as
-  open above; if either has moved by release time, this file is wrong and
-  should be corrected rather than the risk dismissed.
+**1. Whether to tag an unaudited contract suite as `v0.1.0` at all.** Options:
+tag it and let the title and this file carry "unaudited, testnet only" in
+everywhere they appear; or hold the tag until the external audit exists, which
+would mean the release notes describe a deployment nobody can install. The
+second is slower and safer; the first is what the current text assumes.
+
+**2. The status of the TTL audit (R9) and the external audit.** Both are listed
+as open above. If either has moved by release time, this file is wrong and should
+be corrected rather than the risk dismissed. In particular, R9 is the one open
+Medium risk where an uncomputed number is load-bearing for whether a depositor
+can still get their money back — see issue #10.
 
 (The repository and organisation references in this file were previously
 inconsistent with the checkout's `origin` remote. The repository has since been
@@ -191,3 +200,8 @@ so that item is closed.)
 
 `strata-app` is referenced above as the SDK and dashboard. It does not exist yet,
 so nothing in this release depends on it.
+
+Verified against the chain on 2026-10-06, read-only: both contracts are still
+live, and the on-chain Wasm hash of each still matches the hash recorded in
+`deployments/testnet.json`. The recorded test counts were re-derived from
+`cargo test --all --locked` for this release.
