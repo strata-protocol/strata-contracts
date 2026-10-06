@@ -12,9 +12,17 @@ partial fix look complete.
 ## How to report
 
 Open a **private** security advisory on this repository
-("Security" -> "Report a vulnerability"). If advisories are disabled, ask a
-maintainer for a direct contact via the org's public profile and do not post
-the details anywhere public.
+("Security" -> "Report a vulnerability").
+
+> **`TODO(maintainer)` — there is currently no working channel.** GitHub private
+> vulnerability reporting is **disabled** on this repository (verified against the
+> API on 2026-10-06), so the button above is not there, and no direct contact
+> address is published anywhere in this repository. A maintainer needs to either
+> enable private vulnerability reporting under
+> Settings -> Code security -> Private vulnerability reporting, or add a monitored
+> email address below. Until one of those is done, a reporter has to fall back to
+> the organisation's public channels, which is not private. This is a gap, not a
+> policy.
 
 Please include:
 
