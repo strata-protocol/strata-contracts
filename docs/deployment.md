@@ -288,6 +288,56 @@ that the senior's target interest is never funded out of junior principal.
 
 ---
 
+## Known issues
+
+### The CLI's simulation cache can produce an invalid footprint
+
+**Observed with** Stellar CLI 28.1.0, soroban-sdk 27.0.6, protocol 29 testnet,
+on 2026-10-05.
+
+**Symptom.** A `deposit` on `epoch-manager` passed simulation — the CLI printed
+`Signing transaction: …` — and then failed on submission with:
+
+```
+📔 CDWJS65B… - Failure - Log: {"vec":[{"string":"VM call trapped with HostError"},
+  {"symbol":"deposit"},{"error":{"storage":"exceeded_limit"}}]}
+❌ Error event: … = {"vec":[{"string":"trying to access contract data key
+  outside of the footprint"},{"address":"CDWJS65B…"},{"vec":[{"symbol":"RateBps"}]}]}
+```
+
+The footprint the simulation returned did not cover the mock vault's `RateBps`
+entry, which `accrue` reads on every interaction. The transaction was correctly
+refused, so no funds were at risk; it simply could not be submitted.
+
+**Workaround.** Pass `--no-cache`. The byte-identical transaction succeeded on the
+first attempt with that flag:
+
+```bash
+stellar contract invoke --id "$MANAGER" --source-account strata-senior \
+  --network testnet --no-cache -- deposit --from strata-senior \
+  --tranche Senior --amount 1000000000
+```
+
+`--no-cache` stops the CLI reusing a stored simulation. Every call in
+`run-epoch-demo.sh` and `extend-ttl-testnet.sh` passes it. A script that runs a
+long sequence of interacting transactions against one manager and one vault
+should pass it throughout, because a stale footprint looks exactly like a
+contract that refuses to work.
+
+This is a CLI-side problem, not a defect in these contracts. It is recorded here
+because it is the single most confusing failure hit during this deployment, and
+the error text points at the contract rather than at the cache.
+
+### Testnet RPC connections drop
+
+Read-only calls intermittently fail with `client error (SendRequest)` or a TLS
+handshake timeout. The network is fine and nothing happened; re-run the command.
+The scripts here retry reads, but deliberately do **not** retry transaction
+submission — a lost reply could otherwise file a duplicate. See the retry notes
+in `run-epoch-demo.sh`.
+
+---
+
 ## Known limits of this deployment
 
 **A cushion-breaching loss cannot be demonstrated in a demo.** The largest loss
