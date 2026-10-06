@@ -1,4 +1,8 @@
 <p align="center">
+  <img src="assets/logo.png" alt="Strata" width="128">
+</p>
+
+<p align="center">
   <a href="https://github.com/strata-protocol/strata-contracts/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/strata-protocol/strata-contracts/actions/workflows/ci.yml/badge.svg"></a>
   <a href="./LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/github/license/strata-protocol/strata-contracts"></a>
   <a href="https://developers.stellar.org/docs/build/smart-contracts/overview"><img alt="Stellar" src="https://img.shields.io/badge/Stellar-Soroban-7D00FF?logo=stellar&logoColor=white"></a>
@@ -244,9 +248,9 @@ Security reports go through [`SECURITY.md`](SECURITY.md), not a public issue.
 
 | Role | Contact |
 | --- | --- |
-| Maintainer | `TODO(maintainer)` |
-| Security contact | `TODO(maintainer)` — see [`SECURITY.md`](SECURITY.md) |
-| Community channel | `TODO(maintainer)` |
+| Maintainer | [`sulaimonifeoluwa4-blip`](https://github.com/sulaimonifeoluwa4-blip) |
+| Security contact | `sulaimonifeoluwa4@gmail.com` — see [`SECURITY.md`](SECURITY.md) |
+| Community channel | https://t.me/+N9ZmMAjKnCpjZWI8 |
 
 ## Documentation
 

@@ -11,18 +11,15 @@ partial fix look complete.
 
 ## How to report
 
-Open a **private** security advisory on this repository
-("Security" -> "Report a vulnerability").
+Email **sulaimonifeoluwa4@gmail.com** with the details below. Prefer a private
+GitHub security advisory if one is available on the repository; otherwise email.
 
-> **`TODO(maintainer)` — there is currently no working channel.** GitHub private
-> vulnerability reporting is **disabled** on this repository (verified against the
-> API on 2026-10-06), so the button above is not there, and no direct contact
-> address is published anywhere in this repository. A maintainer needs to either
-> enable private vulnerability reporting under
-> Settings -> Code security -> Private vulnerability reporting, or add a monitored
-> email address below. Until one of those is done, a reporter has to fall back to
-> the organisation's public channels, which is not private. This is a gap, not a
-> policy.
+> Note: GitHub private vulnerability reporting is currently **disabled** on this
+> repository (verified against the API on 2026-10-06), so the "Security →
+> Report a vulnerability" button does not appear and there is no GitHub-tracked
+> private thread. The email address above is the channel. It is a personal
+> address, not an organisation one — if that matters to you, `TODO(maintainer)`
+> to move it behind an org alias or enable private reporting.
 
 Please include:
 
