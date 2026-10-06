@@ -37,7 +37,7 @@ This release contains the contracts, the tests, the spec they implement, and a
 | `contracts/vault-interface` | The ERC-4626 subset Strata needs, so the manager depends on an interface rather than a vault. |
 | `contracts/epoch-manager` | The contract. Owns the money and the state machine. |
 | `contracts/mock-vault` | Test double with an admin-set signed yield rate, negative included. Testnet only. |
-| `tests/` | Five spec invariants as property tests, plus 46 cross-contract integration tests. |
+| `tests/` | The five spec invariants as 16 property tests, plus 30 cross-contract integration tests. |
 
 ## Deployed contracts
 
@@ -64,11 +64,14 @@ this repository. Nothing binds it to a commit — see R17a in
 
 ## Test status
 
-**104 tests, all passing.** 18 waterfall, 21 mock-vault, 46 cross-contract
-integration, 19 epoch-manager state machine. `cargo fmt --check` and
-`cargo clippy -- -D warnings` clean. CI runs fmt, clippy, the suite, a 20 000-case
-property-test pass, a real `stellar contract build` with artefact checks, a spec
-consistency check, and `cargo audit`.
+**104 tests, all passing**, counted by `cargo test --all --locked` as one
+`#[test]` per case: 19 in `contracts/waterfall`, 21 in `contracts/mock-vault`, 18
+in `contracts/epoch-manager`, and 46 in `tests/` — split 16 property tests over
+the five spec invariants and 30 cross-contract integration tests.
+`contracts/vault-interface` has none; it is a trait declaration. `cargo fmt
+--check` and `cargo clippy -- -D warnings` are clean. CI runs fmt, clippy, the
+suite, a 20 000-case property-test pass, a real `stellar contract build` with
+artefact checks, a spec consistency check, and `cargo audit`.
 
 **Two real epochs were run on testnet and settled**, with every figure checked
 against [`docs/waterfall-spec.md`](waterfall-spec.md) recomputed independently in

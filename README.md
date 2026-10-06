@@ -80,12 +80,12 @@ misreadable property of the design and it is called out in
 | Component | Status | Notes |
 | --- | --- | --- |
 | `docs/waterfall-spec.md` | **Done** | Source of truth. Frozen without a `spec` issue. |
-| `contracts/waterfall` | **Done** | Pure settlement math. 19 unit tests. |
-| Five spec invariants | **Done** | Property tests, `tests/src/waterfall_props.rs`. |
-| `contracts/vault-interface` | **Done** | The ERC-4626 subset, plus `asset` and `balance_of`. |
+| `contracts/waterfall` | **Done** | Pure settlement math. 19 tests. |
+| Five spec invariants | **Done** | 16 property tests in `tests/src/waterfall_props.rs`. |
+| `contracts/vault-interface` | **Done** | The ERC-4626 subset, plus `asset` and `balance_of`. No tests of its own. |
 | `contracts/mock-vault` | **Done** | Test double, admin-set signed yield. 21 tests. |
-| `contracts/epoch-manager` | **Done** | Epoch lifecycle, deposits, settlement, claims. |
-| Cross-contract tests | **Done** | 46 tests over manager + vault + a real token. |
+| `contracts/epoch-manager` | **Done** | Epoch lifecycle, deposits, settlement, claims. 18 tests. |
+| Cross-contract tests | **Done** | 30 tests over manager + vault + a real token, `tests/src/integration.rs`. |
 | `docs/architecture.md` | **Done** | Layout, data flow, storage, authorisation. |
 | `docs/risks.md` | **Done** | Working risk register, including realised bugs. |
 | CI | **Done** | fmt, clippy, test, wasm build, spec consistency, audit. |
@@ -93,9 +93,9 @@ misreadable property of the design and it is called out in
 | Testnet deployment | **Done** | [epoch-manager](https://stellar.expert/explorer/testnet/contract/CB57H6NE7CIPHEDO2HJT7IX55NHP6RXI2EPSUIGK65NLG5CCXC4JB7QU) and [mock-vault](https://stellar.expert/explorer/testnet/contract/CDWJS65BA26QBTA4L6LBX76B2XPGAQHY25USI6Z3MSQ73T5NQTXARSQ6) live on testnet. See [`docs/deployment.md`](docs/deployment.md). |
 | `scripts/run-epoch-demo.sh` | **Done** | A real good epoch and a real loss epoch, settled and checked against the spec on testnet. |
 | `scripts/extend-ttl-testnet.sh` | **Done** | Extends the deployed instances and Wasm. Does **not** close R9. |
-| TTL audit for per-user positions (R9) | **Not started** | Still open. See [`docs/risks.md`](docs/risks.md). |
-| `strata-app` SDK + dashboard | **Not started** | Separate repo. Needs a pinned contract version. |
-| External audit | **Not started** | Not requested. |
+| TTL audit for per-user positions (R9) | **Not started** | Still open. See [`docs/risks.md`](docs/risks.md). Tracked as issue #10. |
+| `strata-app` SDK + dashboard | **In progress** | Separate repo, not created yet. Needs a pinned contract version. |
+| External audit | **Not started** | Not requested. Tracked as issue #6. |
 | Mainnet support | **Out of scope** | Deliberately. This project will not do it. |
 
 "Unverified", "not started" and "out of scope" are stated as they are. Nothing
@@ -210,7 +210,20 @@ is divided.
 
 Every settlement assertion in the integration tests is checked against
 `strata_waterfall::settle` computed independently, so the contract's numbers
-are never taken on trust. The suite is currently 104 tests, all passing.
+are never taken on trust.
+
+**104 tests, all passing.** Counted by `cargo test --all --locked`, one `#[test]`
+per case, so the per-file numbers sum exactly to the total:
+
+| Where | Tests | What it covers |
+| --- | --- | --- |
+| `contracts/waterfall/src/tests.rs` | 19 | the spec's worked examples and boundaries, by name |
+| `contracts/mock-vault/src/test.rs` | 21 | the yield model, so integration results mean something |
+| `contracts/epoch-manager/src/test.rs` | 18 | lifecycle transitions, bounds, who may do what |
+| `tests/src/waterfall_props.rs` | 16 | the five spec invariants as properties |
+| `tests/src/integration.rs` | 30 | a real manager, vault and SEP-41 token, end to end |
+| `contracts/vault-interface` | 0 | a trait declaration, nothing to test |
+| **Total** | **104** | |
 
 Four bugs that shipped and were caught by these tests are recorded as
 **[realised]** in [`docs/risks.md`](docs/risks.md), including a pro-rata
