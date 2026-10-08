@@ -1,4 +1,4 @@
-# Undisclosed Vulnerability Report
+# Security policy
 
 Strata is **unaudited** and testnet-only. We still want to hear about real
 bugs, especially in the settlement math.
@@ -11,19 +11,20 @@ partial fix look complete.
 
 ## How to report
 
-Email **sulaimonifeoluwa4@gmail.com** with the details below. Prefer a private
-GitHub security advisory if one is available on the repository; otherwise email.
+Report it privately through GitHub:
 
-> Note: GitHub private vulnerability reporting is currently **disabled** on this
-> repository (verified against the API on 2026-10-06), so the "Security →
-> Report a vulnerability" button does not appear and there is no GitHub-tracked
-> private thread. The email address above is the channel. It is a personal
-> address, not an organisation one — if that matters to you, `TODO(maintainer)`
-> to move it behind an org alias or enable private reporting.
+1. Go to the **Security** tab of this repository.
+2. Click **Report a vulnerability**.
+3. Fill in the form.
+
+If you cannot use GitHub's private reporting, email
+**sulaimonifeoluwa4@gmail.com** instead.
 
 Please include:
 
-- affected commit or contract version (the wasm hash, if you have it),
+- what an attacker can do, and who would be affected,
+- affected commit, release tag or contract version (the wasm hash or contract
+  ID, if you have it),
 - the exact inputs: `S`, `J`, `r`, `t`, `V`, and the epoch configuration,
 - the observed behaviour and the behaviour you expected,
 - whether the five invariants in [`docs/waterfall-spec.md`](docs/waterfall-spec.md)
@@ -32,9 +33,14 @@ Please include:
 
 ## What to expect
 
-- Acknowledgement within a few days.
-- A decision on whether the report is valid, and an estimate for a fix.
+- We aim to acknowledge reports within 7 days and to send a status update
+  within 14 days.
+- A decision on whether the report is valid, and an estimate for a fix where
+  we can give one.
 - Credit in the fix commit unless you prefer otherwise.
+
+Strata is unaudited, testnet-only software maintained by a small team, so we
+cannot promise a fix timeline.
 
 ## Scope
 
@@ -44,3 +50,11 @@ gating model, and the deploy scripts.
 Out of scope: the Stellar protocol itself, `soroban-sdk` (report upstream),
 and anything about mainnet deployment — this project does not deploy to
 mainnet, so there is no mainnet loss to investigate.
+
+Also out of scope:
+
+- Risks already listed in `docs/risks.md`, unless you have a new reproduction
+  or a change in severity.
+- Issues in the dashboard or SDK. Those belong in the **strata-app**
+  repository's Security tab.
+- Testnet resets and RPC outages.
