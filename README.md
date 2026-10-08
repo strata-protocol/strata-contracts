@@ -153,6 +153,16 @@ machine-readable record in [`deployments/testnet.json`](deployments/testnet.json
 
 Every script refuses any network but testnet, and CI runs that refusal as a test.
 
+## Live demo
+
+A read-only dashboard shows these contracts' live testnet state: the current
+epoch, an account's tranche position, and projected payouts.
+
+**https://strata-protocol.github.io/strata-app/**
+
+Testnet only, unaudited. If testnet has been reset, the dashboard will report
+that the contracts were not found.
+
 ## Testnet deployment
 
 Deployed 2026-10-05 with Stellar CLI 28.1.0 and soroban-sdk 27.0.6, against a
