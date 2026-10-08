@@ -1,16 +1,12 @@
-<p align="center">
-  <img src="assets/logo.png" alt="Strata" width="128">
-</p>
+# Strata
+
+A senior/junior tranche wrapper for fixed-term epochs on Stellar Soroban.
 
 <p align="center">
   <a href="https://github.com/strata-protocol/strata-contracts/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/strata-protocol/strata-contracts/actions/workflows/ci.yml/badge.svg"></a>
   <a href="./LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/github/license/strata-protocol/strata-contracts"></a>
   <a href="https://developers.stellar.org/docs/build/smart-contracts/overview"><img alt="Stellar" src="https://img.shields.io/badge/Stellar-Soroban-7D00FF?logo=stellar&logoColor=white"></a>
 </p>
-
-# Strata
-
-A senior/junior tranche wrapper for fixed-term epochs on Stellar Soroban.
 
 > ## Disclaimer
 >
