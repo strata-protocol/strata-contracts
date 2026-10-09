@@ -10,8 +10,9 @@
 > external audit, no formal verification, and no independent reimplementation to
 > diff the settlement math against. The arithmetic is property-tested and its
 > bounds are derived rather than guessed, but that is not an audit and not a
-> security review. See [`docs/risks.md`](risks.md) for what is known to be
-> unresolved, including four bugs that shipped during development.
+> security review. [`docs/risks.md`](risks.md) records 19 risks; 12 are still
+> open (R1, R3-R11, R16 and R17a), including four bugs that shipped during
+> development.
 
 ---
 
@@ -172,10 +173,15 @@ stellar contract build
 git tag -a v0.1.0 -m "Strata v0.1.0 - unaudited testnet release"
 git push origin v0.1.0
 
-# 5. Create the release from the tag, using these notes.
+# 5. Create the release from the tag, using these notes. It is a draft and a
+#    pre-release: nothing here is audited and none of it is mainnet.
 gh release create v0.1.0 \
+  --repo strata-protocol/strata-contracts \
   --title "Strata v0.1.0 (unaudited, testnet only)" \
-  --notes-file docs/release-notes-v0.1.0.md
+  --notes-file docs/release-notes-v0.1.0.md \
+  --verify-tag \
+  --prerelease \
+  --draft
 ```
 
 Before running step 5, two things are a maintainer's decision and not an agent's.
