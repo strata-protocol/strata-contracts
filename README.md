@@ -1,6 +1,7 @@
 # Strata
 
-A senior/junior tranche wrapper for fixed-term epochs on Stellar Soroban.
+A set of Soroban smart contracts on Stellar that split a vault's yield into
+senior and junior tranches over fixed-term epochs. **Unaudited and testnet-only.**
 
 <p align="center">
   <a href="https://github.com/strata-protocol/strata-contracts/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/strata-protocol/strata-contracts/actions/workflows/ci.yml/badge.svg"></a>
