@@ -148,16 +148,56 @@ Two properties of this shape are load-bearing:
 
 ## Storage layout
 
-All entries are **persistent**, and all are TTL-bumped on every write
-(`BUMP_THRESHOLD` / `BUMP_AMOUNT` in `epoch-manager`). A Soroban entry that
-expires is a *silently missing* entry, and losing a depositor's position is
-their money.
+All entries are **persistent** (`env.storage().persistent()`). Unlike
+`temporary()` storage — which is permanently deleted on expiry — a Soroban
+`persistent()` entry whose TTL reaches zero is **archived** into the ledger's
+BucketList and can always be restored by paying rent. Every write in
+`epoch-manager` bumps the entry's TTL with `BUMP_THRESHOLD = 100_000` ledgers
+(~5.79 days at 5 s/ledger) and `BUMP_AMOUNT = 4_000_000` ledgers (~231.48 days
+at 5 s/ledger). See risk R9 in [risks.md](risks.md) for the full TTL audit
+across a 365-day maximum epoch term (`6_307_200` ledgers).
 
-| Key | Type | Written by |
-| --- | --- | --- |
-| `Config` | `Config { admin, vault, asset }` | constructor only |
-| `Epoch` | `Epoch { .. }` | every lifecycle transition |
-| `Position(addr, tranche)` | `i128` principal | deposit, claim |
+| Key | Type | Written by | TTL extension |
+| --- | --- | --- | --- |
+| `Config` | `Config { admin, vault, asset }` | constructor only | bumped to `4_000_000` ledgers at construction |
+| `Epoch` | `Epoch { .. }` | every lifecycle transition | bumped to `4_000_000` ledgers on every write (`create_epoch`, `deposit`, `settle`, `claim`, `close_epoch`) |
+| `Position(addr, tranche)` | `i128` principal | deposit, claim | bumped to `4_000_000` ledgers on `deposit` and `claim` |
+
+### Archival and restoring an expired entry with the CLI
+
+If an epoch runs longer than `BUMP_AMOUNT` (`4_000_000` ledgers, ~231.48 days at
+5 s/ledger) without a depositor touching their `Position(addr, tranche)` entry,
+or if `Config` / contract instances go untouched past their TTL, the entry is
+archived rather than deleted.
+
+1. **Contract instances and Wasm** can be extended ahead of time or restored
+   using the CLI:
+   ```bash
+   # Extend live instances and Wasm on testnet:
+   ./scripts/extend-ttl-testnet.sh
+
+   # Restore an archived contract instance or Wasm entry:
+   stellar contract restore --id "$STRATA_MANAGER" --source-account strata-deployer --network testnet
+   ```
+2. **Per-depositor `Position(addr, tranche)` and `Config` / `Epoch` entries:**
+   In Protocol 23+ (`stellar-cli` 28.x), transaction simulation for `claim` (or
+   any write touching the key) automatically populates the restoration footprint
+   when invoked with `--no-cache`:
+   ```bash
+   stellar contract invoke --id "$STRATA_MANAGER" --source-account strata-senior \
+     --network testnet --no-cache -- claim --claimant strata-senior --tranche Senior
+   ```
+   A depositor can also explicitly restore an archived composite `DataKey` entry
+   before claiming by passing its base64-encoded `ScVal` key (`--key-xdr`) to
+   `stellar contract restore`:
+   ```bash
+   stellar contract restore \
+     --id "$STRATA_MANAGER" \
+     --key-xdr "<base64-xdr-of-DataKey-Position>" \
+     --durability persistent \
+     --source-account strata-senior \
+     --network testnet
+   ```
 
 `blend-adapter` keeps its own entries, in the same style:
 

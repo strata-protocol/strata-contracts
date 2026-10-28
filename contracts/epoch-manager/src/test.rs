@@ -309,3 +309,196 @@ fn error_codes_match_discriminants() {
     assert_eq!(Error::ClaimsOutstanding as u32, 13);
     assert_eq!(Error::NoVaultShares as u32, 14);
 }
+
+#[test]
+fn storage_entries_record_expected_initial_ttls_across_manager_and_vault() {
+    use soroban_sdk::testutils::storage::{Instance as _, Persistent as _};
+    use strata_mock_vault::DataKey as VaultKey;
+
+    use crate::{DataKey, BUMP_AMOUNT};
+
+    let f = fixture();
+    let min_persistent_ttl = f.env.ledger().get().min_persistent_entry_ttl - 1;
+
+    // Constructor writes Config and bumps it to BUMP_AMOUNT; instance storage
+    // is not explicitly bumped in contract code and starts at the network
+    // minimum persistent TTL.
+    f.env.as_contract(&f.manager, || {
+        assert_eq!(
+            f.env.storage().persistent().get_ttl(&DataKey::Config),
+            BUMP_AMOUNT
+        );
+        assert_eq!(f.env.storage().instance().get_ttl(), min_persistent_ttl);
+    });
+
+    f.client().create_epoch(&TERM, &RATE, &RATIO);
+    f.client().deposit(&f.user, &Tranche::Junior, &1_000_000);
+    f.client().deposit(&f.user, &Tranche::Senior, &1_000_000);
+
+    let junior_key = DataKey::Position(f.user.clone(), Tranche::Junior);
+    let senior_key = DataKey::Position(f.user.clone(), Tranche::Senior);
+
+    f.env.as_contract(&f.manager, || {
+        assert_eq!(
+            f.env.storage().persistent().get_ttl(&DataKey::Epoch),
+            BUMP_AMOUNT
+        );
+        assert_eq!(
+            f.env.storage().persistent().get_ttl(&junior_key),
+            BUMP_AMOUNT
+        );
+        assert_eq!(
+            f.env.storage().persistent().get_ttl(&senior_key),
+            BUMP_AMOUNT
+        );
+    });
+
+    // mock-vault writes persistent entries without calling extend_ttl, so each
+    // entry starts at `min_persistent_entry_ttl - 1` (4_095 ledgers in default
+    // test LedgerInfo).
+    f.env.as_contract(&f.vault, || {
+        assert_eq!(
+            f.env.storage().persistent().get_ttl(&VaultKey::Admin),
+            min_persistent_ttl
+        );
+        assert_eq!(
+            f.env.storage().persistent().get_ttl(&VaultKey::TotalAssets),
+            min_persistent_ttl
+        );
+        assert_eq!(
+            f.env
+                .storage()
+                .persistent()
+                .get_ttl(&VaultKey::ShareBalance(f.manager.clone())),
+            min_persistent_ttl
+        );
+    });
+}
+
+#[test]
+fn position_ttl_only_extends_once_remaining_life_reaches_bump_threshold() {
+    use soroban_sdk::testutils::storage::Persistent as _;
+
+    use crate::{DataKey, BUMP_AMOUNT, BUMP_THRESHOLD};
+
+    let f = fixture();
+    f.client().create_epoch(&TERM, &RATE, &RATIO);
+    f.client().deposit(&f.user, &Tranche::Junior, &1_000_000);
+
+    let junior_key = DataKey::Position(f.user.clone(), Tranche::Junior);
+
+    // Advance so remaining TTL is BUMP_THRESHOLD + 1 (100_001 ledgers).
+    // `extend_ttl` only extends when `current_ttl <= BUMP_THRESHOLD`, so a
+    // deposit here leaves the remaining TTL at 100_001.
+    let start_seq = f.env.ledger().sequence();
+    f.env
+        .ledger()
+        .set_sequence_number(start_seq + BUMP_AMOUNT - BUMP_THRESHOLD - 1);
+
+    f.env.as_contract(&f.manager, || {
+        assert_eq!(
+            f.env.storage().persistent().get_ttl(&junior_key),
+            BUMP_THRESHOLD + 1
+        );
+    });
+
+    f.client().deposit(&f.user, &Tranche::Junior, &500_000);
+    f.env.as_contract(&f.manager, || {
+        assert_eq!(
+            f.env.storage().persistent().get_ttl(&junior_key),
+            BUMP_THRESHOLD + 1
+        );
+    });
+
+    // Advance one more ledger so remaining TTL == BUMP_THRESHOLD (100_000).
+    // Touching the position now bumps its TTL back to BUMP_AMOUNT (4_000_000).
+    f.env
+        .ledger()
+        .set_sequence_number(start_seq + BUMP_AMOUNT - BUMP_THRESHOLD);
+
+    f.client().deposit(&f.user, &Tranche::Junior, &500_000);
+    f.env.as_contract(&f.manager, || {
+        assert_eq!(
+            f.env.storage().persistent().get_ttl(&junior_key),
+            BUMP_AMOUNT
+        );
+    });
+}
+
+#[test]
+fn position_archived_past_bump_amount_in_max_term_epoch_is_restored_and_claimable() {
+    use soroban_sdk::testutils::storage::Persistent as _;
+    use soroban_sdk::token::TokenClient;
+
+    use crate::{DataKey, BUMP_AMOUNT};
+
+    let f = fixture();
+    // Mint strategy reserve to the vault so a 1-year positive-yield settlement
+    // can pay out.
+    StellarAssetClient::new(&f.env, &f.asset).mint(&f.vault, &1_000_000_000_000i128);
+
+    f.client().create_epoch(&TERM, &RATE, &RATIO);
+    f.client().deposit(&f.user, &Tranche::Junior, &100_000_000);
+    f.client().deposit(&f.user, &Tranche::Senior, &100_000_000);
+
+    let senior_key = DataKey::Position(f.user.clone(), Tranche::Senior);
+    let start_seq = f.env.ledger().sequence();
+
+    // At exactly `start_seq + BUMP_AMOUNT` (4_000_000 ledgers = 231.48 days at
+    // 5s/ledger), the entry is on its final live ledger (`get_ttl == 0`).
+    f.env.ledger().set_sequence_number(start_seq + BUMP_AMOUNT);
+    f.env.as_contract(&f.manager, || {
+        assert_eq!(f.env.storage().persistent().get_ttl(&senior_key), 0);
+    });
+
+    // Advance to the full 365-day maximum term: 31_536_000s = 6_307_200 ledgers
+    // at 5s/ledger, which is 2_307_200 ledgers past `BUMP_AMOUNT`.
+    let max_term_ledgers: u32 = (TERM / 5) as u32;
+    assert!(max_term_ledgers > BUMP_AMOUNT);
+    f.advance(TERM);
+    f.env
+        .ledger()
+        .set_sequence_number(start_seq + max_term_ledgers);
+
+    // Because `Position` is stored in `persistent()` storage (not `temporary()`),
+    // expiry archives the entry rather than deleting it. In Protocol 23+ (SDK 27),
+    // accessing an archived persistent entry restores it to
+    // `min_persistent_entry_ttl - 1` ledgers and charges a persistent rent bump.
+    let pos = f.client().position_of(&f.user, &Tranche::Senior);
+    assert_eq!(pos.principal, 100_000_000);
+    assert!(
+        f.env
+            .cost_estimate()
+            .resources()
+            .persistent_entry_rent_bumps
+            >= 1
+    );
+
+    let min_persistent_ttl = f.env.ledger().get().min_persistent_entry_ttl - 1;
+    f.env.as_contract(&f.manager, || {
+        assert_eq!(
+            f.env.storage().persistent().get_ttl(&senior_key),
+            min_persistent_ttl
+        );
+    });
+
+    // Settle and claim after archival: the depositor recovers their full settled
+    // payout, and `claim` re-bumps the cleared position entry to BUMP_AMOUNT.
+    f.client().settle();
+    let balance_before = TokenClient::new(&f.env, &f.asset).balance(&f.user);
+    let claimed = f.client().claim(&f.user, &Tranche::Senior);
+    let balance_after = TokenClient::new(&f.env, &f.asset).balance(&f.user);
+
+    assert_eq!(claimed, 100_000_000);
+    assert_eq!(balance_after - balance_before, claimed);
+    assert_eq!(
+        f.client().position_of(&f.user, &Tranche::Senior).principal,
+        0
+    );
+    f.env.as_contract(&f.manager, || {
+        assert_eq!(
+            f.env.storage().persistent().get_ttl(&senior_key),
+            BUMP_AMOUNT
+        );
+    });
+}
