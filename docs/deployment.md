@@ -36,6 +36,22 @@ The machine-readable record, written by the deploy script, is
 holds. For both contracts it matched the sha256 of the locally built artefact
 exactly, so the deployed code is the code in this repository at this commit.
 
+You can re-verify the recorded deployment against the live ledger at any time:
+
+```bash
+# Check on-chain wasm hashes against deployments/testnet.json and call one
+# read-only view function per contract (total_assets and current_epoch):
+./scripts/verify-deployment.sh
+
+# Also rebuild locally with 'stellar contract build' and verify that the local
+# Wasm artefacts match deployments/testnet.json:
+./scripts/verify-deployment.sh --rebuild
+
+# Run the offline self-test (network guard, JSON parser, and distinct failure
+# codes for "contract not found" vs "hash mismatch"):
+./scripts/verify-deployment.sh --self-test
+```
+
 ### Why the wasm is smaller than the old hand-built numbers
 
 The figures quoted before deployment were 46 565 bytes for `epoch-manager` and
