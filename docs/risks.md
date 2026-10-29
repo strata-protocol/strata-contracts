@@ -419,3 +419,12 @@ than dismissed:
 - The economics of `MAX_SENIOR_RATIO_BPS` against realistic vault volatility.
   The constant is safe; whether 1.0x is *sufficient* is a modelling question
   nobody has answered.
+
+
+### Hostile-vault Reentrancy and Underpayment Audit (#8)
+
+- **Reentrancy across settle**: An external vault attempting to call back into EpochManager::settle() during 
+edeem() is prevented from double-settling or corrupting state by Soroban call frames and post-redeem checks.
+- **Underpayment defense**: If a malicious vault returns less asset tokens than required to satisfy senior_payout + junior_payout, the manager defends itself via held < owed check in settle(), failing fast with Error::InvalidAmount.
+- **Revert safety**: If a vault reverts during 
+edeem(), the epoch remains in Status::Running, preserving uncorrupted state for subsequent retries. Verified in 	ests/src/hostile_vault_test.rs.

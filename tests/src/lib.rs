@@ -25,3 +25,5 @@ pub mod blend_adapter_props;
 
 #[cfg(test)]
 pub mod blend_adapter_integration;
+#[cfg(test)]
+mod hostile_vault_test;
