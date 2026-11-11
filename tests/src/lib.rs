@@ -21,6 +21,9 @@ pub mod waterfall_props;
 #[cfg(test)]
 pub mod integration;
 
+#[cfg(test)]
+pub mod resource_budget;
+
 pub mod blend_adapter_props;
 
 #[cfg(test)]

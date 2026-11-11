@@ -388,6 +388,35 @@ single depositor can take the entire senior side of an epoch.
 
 *Open:* not a bug, but it means depositors cannot assume diversification.
 
+### R20 — Per-transaction CPU, memory and ledger footprint limits — **Low, analysed**
+
+Every state-changing entrypoint and read-only view on `epoch-manager` was
+measured across `N = 1`, `10`, and `100` depositor positions using the
+`CostEstimate` metering API of `soroban-sdk` 27.0.6 (`tests/src/resource_budget.rs`,
+full tables in [`resource-report.md`](resource-report.md)).
+
+*Findings:*
+- **All entrypoints are strictly $O(1)$ on chain with respect to depositor count.**
+  `DataKey::Epoch` tracks tranche principals and unclaimed totals as scalar
+  `i128` counters, and each depositor's position lives in its own isolated
+  `DataKey::Position(Address, Tranche)` key. No entrypoint iterates over
+  depositors: ledger read/write entry counts, write bytes, and event bytes are
+  constant across `1`, `10`, and `100` positions (`settle` uses `20` footprint
+  entries and `1,628` write bytes on `MockVault`, and `37` footprint entries and
+  `2,216` write bytes on `BlendAdapter`, regardless of `N`).
+- **Well inside Stellar Mainnet limits.** The closest dimension to any network
+  ceiling is the ledger footprint entry count on `deposit` (`42 / 400 = 10.50%`
+  via `BlendAdapter`; `25 / 400 = 6.25%` via `MockVault`) and `settle`
+  (`37 / 400 = 9.25%` via `BlendAdapter`; `20 / 400 = 5.00%` via `MockVault`).
+  Contract event bytes peak at `1,172 / 16,384 B` (`7.15%`), write bytes peak at
+  `2,564 / 132,096 B` (`1.94%`), memory peaks below `2.63%` of `40 MiB`, and CPU
+  instructions peak below `0.79%` of `400M`.
+- **Lifecycle-level note:** while `close_epoch` itself is $O(1)$ (`3` footprint
+  entries), it requires `senior_unclaimed == 0 && junior_unclaimed == 0`, and
+  `claim` requires `claimant.require_auth()` (one depositor per call). Closing
+  an epoch with `N` positions therefore requires `N` separate `claim`
+  transactions before `close_epoch` can succeed.
+
 ---
 
 ## Code-level risks that actually materialised
@@ -514,8 +543,7 @@ document.
 Honest list of risks I have not yet analysed, so they are absent above rather
 than dismissed:
 
-- Gas and resource limits on mainnet. Tests enforce mainnet resource limits by
-  default from SDK v25, and nothing currently fails, but a worst-case
+- Gas and resource limits on mainnet — **analysed in R20 and [resource-report.md](resource-report.md)** (`settle` and all other entrypoints are $O(1)$ per transaction across 1, 10 and 100 positions). Previously, while SDK v25+ enforced mainnet limits in tests, a worst-case
   `settle` with many depositors has not been measured.
 - `V` manipulation at the settlement ledger for a vault with a real, movable
   price. The ordering half is analysed in R19; the market half needs a real
