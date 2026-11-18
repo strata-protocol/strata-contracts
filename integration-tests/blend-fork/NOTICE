@@ -1,0 +1,9 @@
+Strata Blend fork integration test
+Copyright 2026 Roman Karpovich and Strata contributors
+
+Test code is contributed under the Apache License, Version 2.0, matching
+the repository license. Adapted from roman-karpovich/kanatoko-strata-check.
+
+fixtures/testnet-blend.json contains state read from public Stellar testnet,
+including deployed third-party contract code. That code remains under its
+authors' terms and is included so the test can replay the ledger offline.
